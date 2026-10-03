@@ -33,6 +33,10 @@ This checks compilation. It does not establish that live dashboard data or every
 
 ## Interpretation and deployment
 
-Quality signals are heuristics, rather than validated measures of factuality. Cost estimates depend on the maintained pricing table and recorded token counts. Review unknown-model behavior before using totals for budgeting. The SDK queue is in memory, so process termination can lose pending telemetry.
+Quality signals are heuristics, rather than validated measures of factuality. Cost estimates depend on the maintained pricing table and recorded token counts. Model selection currently uses first-substring matching: `gpt-4o-mini` matches `gpt-4o`; unknown names use the default rate. Review and correct these mappings before using totals for budgeting. The SDK queue is in memory, so process termination can lose pending telemetry.
 
 For shared deployment, implement authentication, authorization, retention, and prompt redaction; configure database credentials, CORS, and frontend API addresses for the environment. Development defaults are not a production deployment configuration.
+
+## Portfolio preview versus application
+
+The portfolio's interactive return-policy example is a browser-only fixture replay. Its dashboard screenshot uses synthetic API responses rendered through this project's React interface. Neither connects to a deployed backend or demonstrates measured live traffic. Running the actual application requires the database and API setup described in the root README.

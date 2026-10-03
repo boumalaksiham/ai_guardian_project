@@ -106,7 +106,9 @@ Telemetry delivery is **best effort**: network or backend failures are caught an
 
 ### Cost Intelligence
 
-The backend estimates request cost from prompt and completion token counts using the configured per-model pricing table.
+The backend estimates request cost from prompt and completion token counts using the configured per-model pricing table (USD per 1,000 tokens).
+
+**Known model-selection issue:** `cost_service.py` selects the first substring match. Because `gpt-4o` precedes `gpt-4o-mini`, mini calls currently receive the `gpt-4o` rate. Unknown names use a default rate. These totals are diagnostic estimates and should not be presented as accurate provider billing. Exact model-name matching and regression coverage remain necessary.
 
 Metrics endpoints aggregate cost across stored events, including:
 
@@ -168,7 +170,7 @@ Generation
 Evaluation
 ```
 
-`start_trace()` creates a persistent trace record. `log_event()` associates workflow steps with that trace. `end_trace()` waits for any queued events in that workflow to finish delivery, then finalizes the trace by aggregating:
+`start_trace()` creates a persistent trace record. `log_event()` associates workflow steps with that trace. `end_trace()` waits on queued delivery futures for that trace (with per-future timeouts), then requests backend finalization. Failed or timed-out delivery can leave events absent from the aggregate. The backend aggregates:
 
 - step count
 - total latency
@@ -239,7 +241,15 @@ If the wrapped function raises an exception, AI Guardian records a failed event 
 
 ### LangChain Integration Example
 
-The repository also includes a LangChain callback example that records LLM start/end/error events through the same SDK client.
+The repository includes a LangChain callback example that records LLM start/end/error events through the SDK client. Install optional example dependencies from the repository root:
+
+```bash
+python -m pip install -e "./sdk[openai]"
+# Or, for the LangChain example:
+python -m pip install -e "./sdk[langchain]"
+```
+
+Provider examples require your own `OPENAI_API_KEY` and make billable model calls. The callback uses the generic model name `langchain-llm`, so the backend applies its default rate rather than the provider-specific rate. Optional dependency ranges are not locked; verify compatibility with the example imports before treating them as a reproducible integration.
 
 ---
 
@@ -538,7 +548,7 @@ Authentication, API keys, role-based access control, and tenant isolation are no
 M.S. Artificial Intelligence — Machine Learning Concentration  
 Khoury College of Computer Sciences, Northeastern University
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0077B5?style=flat-square&logo=linkedin)](https://linkedin.com/in/siham-boumalak-11014b210)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0077B5?style=flat-square&logo=linkedin)](https://www.linkedin.com/in/siham-boumalak/)
 [![GitHub](https://img.shields.io/badge/GitHub-boumalaksiham-181717?style=flat-square&logo=github)](https://github.com/boumalaksiham)
 
 ---
