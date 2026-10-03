@@ -328,80 +328,34 @@ ai-guardian/
 
 ## Quickstart
 
-### Prerequisites
-
-- Python 3.9+
-- Node.js 18+
-- PostgreSQL 15+
-
-### 1. Create the Database
-
-The default local connection is:
-
-```text
-postgresql://postgres:password@localhost:5432/ai_guardian
-```
-
-Create the database:
+Use Python 3.12 (the CI environment), Node.js 18+, and a running PostgreSQL instance. Start backend and frontend in separate terminals. These examples assume a local development database.
 
 ```bash
+git clone https://github.com/boumalaksiham/ai_guardian_project.git
+cd ai_guardian_project
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -r backend/requirements.txt
+python -m pip install -e ./sdk
 createdb ai_guardian
-```
-
-For a different connection, set:
-
-```bash
-export DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE"
-```
-
-### 2. Start the Backend
-
-```bash
+export DATABASE_URL="postgresql://postgres:password@localhost:5432/ai_guardian"
 cd backend
-pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-Backend:
+Replace the connection string with your actual database credentials. On Windows use PowerShell activation and `$env:DATABASE_URL = "..."`. The backend reads environment variables directly; creating a `.env` file alone does not load them. PostgreSQL must be reachable before startup because table creation runs during application import.
 
-```text
-http://localhost:8000
-```
+The API is at `http://localhost:8000`, its interactive schema is at `http://localhost:8000/docs`, and its health endpoint is at `http://localhost:8000/health`.
 
-Interactive API documentation:
-
-```text
-http://localhost:8000/docs
-```
-
-Health check:
-
-```text
-http://localhost:8000/health
-```
-
-### 3. Start the Frontend
+In another terminal, starting from the repository root:
 
 ```bash
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
-Dashboard:
-
-```text
-http://localhost:5173
-```
-
-### 4. Install the SDK
-
-```bash
-cd sdk
-pip install -e .
-```
-
----
+Open the address printed by Vite, normally `http://localhost:5173`. The frontend uses the local backend address. See [development and testing](docs/DEVELOPMENT.md) for checks and troubleshooting.
 
 ## API Reference
 
@@ -559,7 +513,7 @@ Authentication, API keys, role-based access control, and tenant isolation are no
 - [ ] Slack / email integrations
 - [ ] Docker Compose development environment
 - [ ] Broader automated integration tests
-- [ ] GitHub Actions CI pipeline
+- [x] GitHub Actions CI pipeline for Python unit tests
 
 ---
 
