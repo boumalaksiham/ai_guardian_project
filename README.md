@@ -61,7 +61,7 @@ Telemetry delivery is **best effort**: network or backend failures are caught an
 
 The backend estimates request cost from prompt and completion token counts using the configured per-model pricing table (USD per 1,000 tokens).
 
-**Known model-selection issue:** `cost_service.py` selects the first substring match. Because `gpt-4o` precedes `gpt-4o-mini`, mini calls currently receive the `gpt-4o` rate. Unknown names use a default rate. These totals are diagnostic estimates and should not be presented as accurate provider billing. Exact model-name matching and regression coverage remain necessary.
+Model lookup uses exact configured names and recognized dated snapshot suffixes. For example, `gpt-4o-mini` and `gpt-4o-mini-2024-07-18` use the mini rate; unrelated names containing `gpt-4o` do not. Unknown names use a default rate. Rates remain a static diagnostic configuration, not current provider billing. Regression tests cover mini/full-model distinctions, snapshot names, unknown-name boundaries, and token arithmetic.
 
 Metrics endpoints aggregate cost across stored events, including:
 
@@ -368,7 +368,7 @@ Authentication, API keys, role-based access control, and tenant isolation are no
 
 ## Next engineering priorities
 
-1. Correct model-name matching in cost estimation and add regression coverage.
+1. Maintain the pricing configuration and make unknown-model estimates explicit in the UI.
 2. Add durable delivery and broader ingestion/trace integration tests.
 3. Add authentication, authorization, redaction, and retention controls before a public deployment.
 4. Evaluate source-grounded response checks against labeled examples before making factuality claims.

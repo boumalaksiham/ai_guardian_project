@@ -1,3 +1,6 @@
+import re
+
+
 MODEL_COSTS = {
     "gpt-4o": {"prompt": 0.005, "completion": 0.015},
     "gpt-4o-mini": {"prompt": 0.00015, "completion": 0.0006},
@@ -11,11 +14,19 @@ MODEL_COSTS = {
 }
 
 def compute_cost(model_name: str, prompt_tokens: int, completion_tokens: int) -> float:
-    model_key = "default"
-    for key in MODEL_COSTS:
-        if key in model_name.lower():
-            model_key = key
-            break
+    """Use an exact configured name or a dated snapshot, never a substring.
+
+    Rates are USD per 1,000 tokens. Unknown names retain the diagnostic
+    default rate; this function does not fetch current provider pricing.
+    """
+    name = model_name.strip().lower()
+    model_key = name if name in MODEL_COSTS else "default"
+    if model_key == "default":
+        for key in sorted(MODEL_COSTS, key=len, reverse=True):
+            suffix = name.removeprefix(key + "-")
+            if name.startswith(key + "-") and re.fullmatch(r"(?:\d{4}-\d{2}-\d{2}|\d{8}|\d{4})", suffix):
+                model_key = key
+                break
     rates = MODEL_COSTS[model_key]
     cost = (prompt_tokens / 1000 * rates["prompt"]) + (completion_tokens / 1000 * rates["completion"])
     return round(cost, 8)
