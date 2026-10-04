@@ -10,72 +10,25 @@
 
 ---
 
-## Overview
+## What this project makes visible
 
-LLM-powered applications often expose only the final response:
+An LLM application may produce an answer without showing which call was slow, how many tokens it used, or which workflow step failed. AI Guardian connects application instrumentation to stored events and a dashboard so those questions can be inspected at call and trace level.
 
-```text
-prompt → model → response
+The implemented deliverables are a **Python SDK, FastAPI ingestion and metrics API, PostgreSQL event/alert/trace storage, and React dashboard**. The dashboard polls the API every 10 seconds. It displays stored telemetry; it does not run or verify the monitored model itself.
+
+**Start here:** [SDK tracker](sdk/ai_guardian/tracker.py), [event route](backend/app/routes/events.py), [database models](backend/app/models.py), and [dashboard](frontend/src/pages/Dashboard.jsx). [Development instructions](docs/DEVELOPMENT.md) cover verification and troubleshooting.
+
+## Architecture
+
+```mermaid
+flowchart TD
+    A[Instrumented Python application] --> B[Python SDK]
+    B --> C[FastAPI backend]
+    C --> D[PostgreSQL]
+    E[React dashboard] -->|Polls metrics and records| C
 ```
 
-For development and evaluation, that is not enough. Teams also need visibility into latency, token consumption, estimated cost, failures, workflow steps, and changes in response behavior.
-
-**AI Guardian** is a full-stack LLM observability platform that captures structured telemetry from AI applications through a reusable Python SDK, processes it with FastAPI, stores it in PostgreSQL, and visualizes it in a React dashboard.
-
-The platform tracks:
-
-- model and request metadata
-- prompts and generated outputs
-- prompt, completion, and total token usage
-- request latency
-- estimated API cost
-- success and failure status
-- heuristic quality, groundedness, and hallucination-risk signals
-- operational alerts
-- session and trace identifiers
-- aggregated multi-step workflow traces
-
----
-
-## System Architecture
-
-```text
-┌───────────────────────────────────────────────────────────────┐
-│                       AI Application                          │
-│      Chatbot / RAG Pipeline / Agent / Summarizer             │
-└──────────────────────────┬────────────────────────────────────┘
-                           │ instrumented calls
-                           ▼
-┌───────────────────────────────────────────────────────────────┐
-│                     AI Guardian SDK                           │
-│  • @track_llm_call decorator                                 │
-│  • start_trace() / log_event() / end_trace()                 │
-│  • OpenAI and LangChain examples                             │
-│  • background event delivery                                 │
-└──────────────────────────┬────────────────────────────────────┘
-                           │ HTTP telemetry
-                           ▼
-┌───────────────────────────────────────────────────────────────┐
-│                     FastAPI Backend                           │
-│                                                               │
-│   Event Ingestion   Cost Estimation   Heuristic Evaluation   │
-│   Alerting          Metrics           Trace Aggregation       │
-└──────────────────────────┬────────────────────────────────────┘
-                           │
-                           ▼
-┌───────────────────────────────────────────────────────────────┐
-│                     PostgreSQL                                │
-│            llm_events | alerts | traces                       │
-└──────────────────────────┬────────────────────────────────────┘
-                           │
-                           ▼
-┌───────────────────────────────────────────────────────────────┐
-│                  React + Vite Dashboard                       │
-│        Dashboard | Events | Alerts | Traces                   │
-└───────────────────────────────────────────────────────────────┘
-```
-
----
+The SDK separates instrumentation from storage and analysis. Its background delivery keeps telemetry requests off the wrapped call's foreground path, but introduces best-effort delivery and possible loss at process shutdown. Trace finalization waits for queued futures before requesting aggregation; failed deliveries still affect completeness.
 
 ## Key Features
 
@@ -253,88 +206,14 @@ Provider examples require your own `OPENAI_API_KEY` and make billable model call
 
 ---
 
-## Dashboard
+## Dashboard views
 
-The React dashboard contains four main views.
-
-### Dashboard Overview
-
-Displays:
-
-- total requests
-- success rate
-- average latency
-- total estimated cost
-- total tokens
-- active alerts
-- latency trend
-- cost by model
-
-### Events
-
-Displays recent LLM interaction events and request metadata.
-
-### Alerts
-
-Displays active threshold violations and allows alerts to be resolved.
-
-### Traces
-
-Displays persisted multi-step workflow traces and their aggregate metrics.
-
-Dashboard data refreshes every **10 seconds** through REST API polling.
-
----
-
-## Project Structure
-
-```text
-ai-guardian/
-├── backend/
-│   ├── app/
-│   │   ├── main.py
-│   │   ├── db.py
-│   │   ├── models.py
-│   │   ├── schemas.py
-│   │   ├── routes/
-│   │   │   ├── events.py
-│   │   │   ├── metrics.py
-│   │   │   ├── alerts.py
-│   │   │   └── traces.py
-│   │   └── services/
-│   │       ├── cost_service.py
-│   │       ├── evaluation_service.py
-│   │       └── alert_service.py
-│   └── tests/
-│       └── test_tracker.py
-│
-├── sdk/
-│   ├── ai_guardian/
-│   │   ├── __init__.py
-│   │   ├── client.py
-│   │   ├── tracker.py
-│   │   ├── models.py
-│   │   └── utils.py
-│   ├── examples/
-│   │   ├── openai_tracked.py
-│   │   └── langchain_tracked.py
-│   ├── tests/
-│   │   └── test_sdk_tracker.py
-│   └── setup.py
-│
-└── frontend/
-    ├── package.json
-    ├── vite.config.js
-    └── src/
-        ├── App.jsx
-        └── pages/
-            ├── Dashboard.jsx
-            ├── EventsPage.jsx
-            ├── AlertsPage.jsx
-            └── TracesPage.jsx
-```
-
----
+| View | Question it helps answer |
+|---|---|
+| Overview | How many requests, failures, tokens, and estimated dollars are represented in the stored events? |
+| Events | What prompt, response, model, latency, and status were recorded for an individual call? |
+| Alerts | Which stored events crossed the configured thresholds, and which alerts remain unresolved? |
+| Traces | Which steps belong to a workflow, and what are their aggregate metrics? |
 
 ## Quickstart
 
@@ -421,29 +300,15 @@ Check Alert Thresholds
 
 ---
 
-## Engineering Design Decisions
+## Engineering decisions and tradeoffs
 
-### Why FastAPI?
-
-FastAPI provides request validation, automatic OpenAPI documentation, and a clean API layer for event ingestion and metrics retrieval.
-
-### Why PostgreSQL?
-
-Observability data is structured and frequently aggregated. A relational database makes it straightforward to query cost, latency, failures, alerts, and events associated with a trace.
-
-### Why a Separate SDK?
-
-The SDK decouples application instrumentation from monitoring infrastructure. AI applications emit structured telemetry without embedding database or analytics logic into the application itself.
-
-### Why Background Event Delivery?
-
-Observability should not noticeably increase the latency of the model call being measured. Event telemetry is therefore queued on a background thread pool while application execution continues.
-
-### Why Lightweight Heuristics?
-
-The current evaluation layer is inexpensive, deterministic, and does not require additional LLM API calls. It serves as an experimental baseline for more sophisticated evaluators.
-
----
+| Decision | Reason and practical limit |
+|---|---|
+| Separate SDK | Keeps database and analytics logic out of instrumented applications; response extraction still depends on the returned object format. |
+| PostgreSQL | Supports structured records and aggregates; a reachable database is required during backend initialization. |
+| Background delivery | Reduces foreground telemetry work; the in-memory queue is not durable. |
+| Deterministic response heuristics | Avoids another model call for every event; language cues do not verify factual correctness. |
+| REST polling | Gives a simple dashboard refresh path; updates are periodic rather than streamed. |
 
 ## Configuration & Security Notes
 
@@ -501,31 +366,12 @@ Authentication, API keys, role-based access control, and tenant isolation are no
 
 ---
 
-## Roadmap
+## Next engineering priorities
 
-- [x] Structured LLM event ingestion
-- [x] PostgreSQL persistence
-- [x] Cost aggregation
-- [x] Threshold-based alerts
-- [x] Background SDK event delivery
-- [x] Persistent trace lifecycle and aggregation
-- [x] Polling-based dashboard refresh
-- [ ] Durable telemetry queue / collector
-- [ ] LLM-as-judge evaluation
-- [ ] RAG source-grounded factuality checks
-- [ ] Prompt regression testing
-- [ ] Model A/B comparison dashboard
-- [ ] Cost budgets and forecasting
-- [ ] WebSocket or Server-Sent Event streaming
-- [ ] Authentication and API keys
-- [ ] Multi-tenant authorization
-- [ ] Prompt and response redaction
-- [ ] Slack / email integrations
-- [ ] Docker Compose development environment
-- [ ] Broader automated integration tests
-- [x] GitHub Actions CI pipeline for Python unit tests
-
----
+1. Correct model-name matching in cost estimation and add regression coverage.
+2. Add durable delivery and broader ingestion/trace integration tests.
+3. Add authentication, authorization, redaction, and retention controls before a public deployment.
+4. Evaluate source-grounded response checks against labeled examples before making factuality claims.
 
 ## Tech Stack
 
